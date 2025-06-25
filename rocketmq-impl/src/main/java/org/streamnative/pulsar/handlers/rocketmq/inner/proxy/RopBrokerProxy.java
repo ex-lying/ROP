@@ -1222,7 +1222,7 @@ public class RopBrokerProxy extends RocketMQRemoteServer implements AutoCloseabl
                 return Joiner.on(COLO_CHAR).join(pulsarBrokerAddr.getHostName(), ROP_SERVICE_PORT);
             });
         } catch (Exception e) {
-            log.error("LookupTopics pulsar topic=[{}] error.", pulsarTopicName, e);
+            log.error("LookupTopics pulsar  topic=[{}] error.", pulsarTopicName, e);
         }
         return null;
     }
