@@ -27,7 +27,6 @@ import org.apache.bookkeeper.mledger.ManagedCursor.FindPositionConstraint;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerImpl;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.client.impl.MessageImpl;
 
 /**
@@ -114,7 +113,7 @@ public class OffsetFinder implements FindEntryCallback {
             FindEntryCallback callback, Object ctx) {
         checkState(constraint == FindPositionConstraint.SearchAllAvailableEntries);
 
-        // return PositionImpl(firstLedgerId, -1)
+        // return (firstLedgerId, -1)
         Position startPosition = managedLedger.getFirstPosition();
         long max = managedLedger.getNumberOfEntries() - 1;
 

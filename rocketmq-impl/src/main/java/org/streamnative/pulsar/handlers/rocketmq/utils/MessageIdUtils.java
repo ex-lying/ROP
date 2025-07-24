@@ -21,13 +21,8 @@ import io.netty.buffer.ByteBuf;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.bookkeeper.mledger.AsyncCallbacks;
-import org.apache.bookkeeper.mledger.Entry;
-import org.apache.bookkeeper.mledger.ManagedLedger;
-import org.apache.bookkeeper.mledger.ManagedLedgerException;
-import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.*;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerImpl;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.intercept.ManagedLedgerInterceptorImpl;
 import org.apache.pulsar.broker.service.persistent.PersistentTopic;
 import org.apache.pulsar.client.api.MessageId;
@@ -117,7 +112,7 @@ public class MessageIdUtils {
         ManagedLedgerImpl managedLedgerImpl = (ManagedLedgerImpl) managedLedger;
         Long ledgeId = managedLedgerImpl.getLedgersInfo().firstKey();
         Preconditions.checkNotNull(ledgeId);
-        PositionImpl firstPosition = new PositionImpl(ledgeId, -1);
+        Position firstPosition = PositionFactory.create(ledgeId, -1);
         return managedLedgerImpl.getNextValidPosition(firstPosition);
     }
 
@@ -131,13 +126,13 @@ public class MessageIdUtils {
 
     public static long getQueueOffsetByPosition(PersistentTopic pulsarTopic, Position pulsarPosition) {
         Preconditions.checkNotNull(pulsarTopic);
-        Preconditions.checkArgument(pulsarPosition instanceof PositionImpl);
+        Preconditions.checkArgument(pulsarPosition instanceof Position);
         long now = System.currentTimeMillis();
         long queueOffset = getLogEndOffset(pulsarTopic.getManagedLedger());
         try {
             ManagedLedgerImpl managedLedger = (ManagedLedgerImpl) pulsarTopic.getManagedLedger();
             return getOffsetOfPosition(managedLedger,
-                    (PositionImpl) pulsarPosition, false, -1).join();
+                    pulsarPosition, false, -1).join();
         } catch (Exception e) {
             log.warn("[{}] Get offset of position[{}] error.", pulsarTopic.getName(), pulsarPosition, e);
         }
@@ -147,7 +142,7 @@ public class MessageIdUtils {
 
     public static CompletableFuture<Long> getOffsetOfPosition(
             ManagedLedgerImpl managedLedger,
-            PositionImpl position,
+            Position position,
             boolean needCheckMore,
             long timestamp) {
         final CompletableFuture<Long> future = new CompletableFuture<>();
@@ -185,16 +180,16 @@ public class MessageIdUtils {
         return future;
     }
 
-    public static PositionImpl getPositionForOffset(ManagedLedger managedLedger, Long offset) {
+    public static Position getPositionForOffset(ManagedLedger managedLedger, Long offset) {
         try {
-            return (PositionImpl) managedLedger.asyncFindPosition(new OffsetSearchPredicate(offset)).get();
+            return managedLedger.asyncFindPosition(new OffsetSearchPredicate(offset)).get();
         } catch (Exception e) {
             log.error("[{}] Failed to find position for offset {}", managedLedger.getName(), offset);
             throw new RuntimeException(managedLedger.getName() + " failed to find position for offset " + offset);
         }
     }
 
-    public static Position getPreviousPosition(ManagedLedger managedLedger, PositionImpl position) {
+    public static Position getPreviousPosition(ManagedLedger managedLedger, Position position) {
         try {
             return ((ManagedLedgerImpl) managedLedger).getPreviousPosition(position);
         } catch (Exception e) {

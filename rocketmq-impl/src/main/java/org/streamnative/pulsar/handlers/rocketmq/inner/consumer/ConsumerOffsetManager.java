@@ -30,7 +30,6 @@ import org.apache.bookkeeper.mledger.AsyncCallbacks;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerImpl;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.service.persistent.PersistentTopic;
 import org.apache.pulsar.client.impl.MessageImpl;
 import org.apache.pulsar.common.naming.TopicName;
@@ -249,7 +248,7 @@ public class ConsumerOffsetManager {
             PersistentTopic persistentTopic = getPulsarPersistentTopic(topicName, pulsarPartitionId);
             ManagedLedgerImpl managedLedger = (ManagedLedgerImpl) persistentTopic.getManagedLedger();
 
-            PositionImpl position = (PositionImpl) managedLedger.getLastConfirmedEntry();
+            Position position = managedLedger.getLastConfirmedEntry();
             if (!managedLedger.ledgerExists(position.getLedgerId())) {
                 log.info("[{}] [{}] position is not found, maybe has been deleted.", topicName.getPulsarTopicName(),
                         position);
@@ -260,7 +259,7 @@ public class ConsumerOffsetManager {
             }
 
             final CompletableFuture<Long> future = new CompletableFuture<>();
-            managedLedger.asyncReadEntry((PositionImpl) managedLedger.getLastConfirmedEntry(),
+            managedLedger.asyncReadEntry(managedLedger.getLastConfirmedEntry(),
                     new AsyncCallbacks.ReadEntryCallback() {
                         @Override
                         public void readEntryFailed(ManagedLedgerException exception, Object ctx) {
@@ -311,7 +310,7 @@ public class ConsumerOffsetManager {
                         finalOffset.complete(-1L);
                     } else {
                         MessageIdUtils.getOffsetOfPosition(managedLedger,
-                                (PositionImpl) position, true, timestamp).whenComplete((offset, throwable) -> {
+                                position, true, timestamp).whenComplete((offset, throwable) -> {
                             if (throwable != null) {
                                 log.error("[{}] Failed to get offset for position {}", persistentTopic.getName(),
                                         position, throwable);

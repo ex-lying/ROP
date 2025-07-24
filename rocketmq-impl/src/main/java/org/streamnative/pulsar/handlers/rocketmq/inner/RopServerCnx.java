@@ -25,14 +25,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.bookkeeper.mledger.*;
 import org.apache.bookkeeper.mledger.AsyncCallbacks.MarkDeleteCallback;
 import org.apache.bookkeeper.mledger.AsyncCallbacks.ReadEntryCallback;
-import org.apache.bookkeeper.mledger.Entry;
-import org.apache.bookkeeper.mledger.ManagedCursor;
-import org.apache.bookkeeper.mledger.ManagedLedger;
-import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.impl.NonDurableCursorImpl;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -584,7 +580,7 @@ public class RopServerCnx extends ChannelInboundHandlerAdapter implements Pulsar
         try {
             PersistentTopic persistentTopic = brokerController.getGroupMetaManager()
                     .getPulsarPersistentTopic(clientTopicName, commitLogOffset.getPartitionId());
-            PositionImpl positionForOffset = MessageIdUtils
+            Position positionForOffset = MessageIdUtils
                     .getPositionForOffset(persistentTopic.getManagedLedger(), commitLogOffset.getQueueOffset());
             Preconditions.checkNotNull(positionForOffset,
                     String.format("lookMessageByCommitLogOffset [topic:%s, partitionId:%d, offset:%d] not found.",
@@ -707,15 +703,13 @@ public class RopServerCnx extends ChannelInboundHandlerAdapter implements Pulsar
 
         ManagedCursor managedCursor = cursors.get(triple);
         if (managedCursor == null) {
-            PositionImpl startPosition;
+            Position startPosition;
             if (queueOffset <= MessageIdUtils.MIN_ROP_OFFSET) {
                 //pulsar 3.0.6版本修改了常量命名
-                //startPosition = PositionImpl.earliest;
-                startPosition = PositionImpl.EARLIEST;
+                startPosition = PositionFactory.EARLIEST;
             } else if (queueOffset == Long.MAX_VALUE || queueOffset > maxOffset) {
                 //pulsar 3.0.6版本修改了常量命名
-                //startPosition = PositionImpl.latest;
-                startPosition = PositionImpl.LATEST;
+                startPosition = PositionFactory.LATEST;
             } else {
                 startPosition = MessageIdUtils.getPositionForOffset(managedLedger, queueOffset);
             }
@@ -729,7 +723,7 @@ public class RopServerCnx extends ChannelInboundHandlerAdapter implements Pulsar
                 // commit the offset, so backlog not affect by this cursor.
                 if (!entries.isEmpty()) {
                     final Entry lastEntry = entries.get(entries.size() - 1);
-                    final PositionImpl currentPosition = PositionImpl.get(
+                    final Position currentPosition = PositionFactory.create(
                             lastEntry.getLedgerId(), lastEntry.getEntryId());
                     commitOffset((NonDurableCursorImpl) managedCursor, currentPosition);
                 }
@@ -775,7 +769,7 @@ public class RopServerCnx extends ChannelInboundHandlerAdapter implements Pulsar
     }
 
     private ManagedCursor getOrCreateCursor(Triple<Long, String, String> triple, ManagedLedger managedLedger,
-                                            PositionImpl startPosition) {
+                                            Position startPosition) {
         if (this.isInactive) {
             return null;
         }
@@ -789,9 +783,9 @@ public class RopServerCnx extends ChannelInboundHandlerAdapter implements Pulsar
 
                 }
 
-                PositionImpl cursorStartPosition = startPosition;
+                Position cursorStartPosition = startPosition;
                 if (startPosition.getEntryId() > -1) {
-                    cursorStartPosition = new PositionImpl(startPosition.getLedgerId(), startPosition.getEntryId() - 1);
+                    cursorStartPosition = PositionFactory.create(startPosition.getLedgerId(), startPosition.getEntryId() - 1);
                 }
                 return managedLedger.newNonDurableCursor(cursorStartPosition, getFullCursorName(t));
             } catch (Exception e) {
@@ -895,7 +889,7 @@ public class RopServerCnx extends ChannelInboundHandlerAdapter implements Pulsar
     }
 
     // commit the offset, so backlog not affect by this cursor.
-    private static void commitOffset(NonDurableCursorImpl cursor, PositionImpl currentPosition) {
+    private static void commitOffset(NonDurableCursorImpl cursor, Position currentPosition) {
         cursor.asyncMarkDelete(currentPosition, new MarkDeleteCallback() {
             @Override
             public void markDeleteComplete(Object ctx) {

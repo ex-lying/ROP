@@ -42,7 +42,7 @@ import java.util.stream.IntStream;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.ManagedCursor;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.bookkeeper.mledger.Position;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.persistent.PersistentSubscription;
@@ -330,7 +330,7 @@ public class GroupMetaManager {
             String pulsarGroup = groupAndTopic.getClientGroupName().getPulsarGroupName();
             PersistentSubscription subscription = persistentTopic.getSubscription(pulsarGroup);
             if (subscription != null) {
-                PositionImpl markDeletedPosition = (PositionImpl) subscription.getCursor().getMarkDeletedPosition();
+                Position markDeletedPosition = subscription.getCursor().getMarkDeletedPosition();
                 return MessageIdUtils.getQueueOffsetByPosition(persistentTopic, markDeletedPosition);
             }
         } catch (Exception ex) {
@@ -436,12 +436,12 @@ public class GroupMetaManager {
                                     .get();
                         }
                         ManagedCursor cursor = subscription.getCursor();
-                        PositionImpl markDeletedPosition = (PositionImpl) cursor.getMarkDeletedPosition();
+                        Position markDeletedPosition = cursor.getMarkDeletedPosition();
 
                         // get position by manage ledger and offset
-                        PositionImpl commitPosition = MessageIdUtils
+                        Position commitPosition = MessageIdUtils
                                 .getPositionForOffset(persistentTopic.getManagedLedger(), offset - 1);
-                        PositionImpl lastPosition = (PositionImpl) persistentTopic.getLastPosition();
+                        Position lastPosition = persistentTopic.getLastPosition();
 
                         if (commitPosition.compareTo(markDeletedPosition) > 0
                                 && commitPosition.compareTo(lastPosition) < 0) {
